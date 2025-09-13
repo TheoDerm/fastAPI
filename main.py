@@ -35,17 +35,14 @@ ISSUES:
 """
 
 
-
-
-
-
 from fastapi import FastAPI, HTTPException,status, Depends
 from typing import Union
 from pydantic import BaseModel
 from calculator import Calculator
 app = FastAPI()
+calculator = Calculator()
 current_value: float = 0.0
-# calculator = Calculator()
+
 
 def handle_errors(func):
         def wrapper(num: float):
@@ -55,10 +52,6 @@ def handle_errors(func):
                         raise HTTPException (status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
         return wrapper
 
-# Change the design to work with Dependency Injection:
-def get_calculator() -> Calculator:
-        return Calculator()
-
 
 @app.get("/")
 def root():
@@ -67,29 +60,29 @@ def root():
 
 @app.get("/currentValue")
 # def currentValue(calc: Calculator = Depends(get_calculator)):
-def currentValue(calc: Calculator = Depends(get_calculator)):
-        return {"Current Value": calc.getCurrentValue()}
+def currentValue():
+        return {"Current Value": calculator.getCurrentValue()}
 
-@handle_errors
 @app.get("/add/{num}")
-def add(num:float, calc: Calculator = Depends(get_calculator)):
-        return calc.add(num)
+@handle_errors
+def add(num:float, ):
+        return calculator.add(num)
 
 @app.get("/sub/{num}")
 @handle_errors
-def sub(num:float, calc: Calculator = Depends(get_calculator)):
-        return calc.substract(num)
+def sub(num:float, ):
+        return calculator.substract(num)
 
 @app.get("/multiply/{num}")
 @handle_errors
-def multiply(num:float, calc: Calculator = Depends(get_calculator)):
-        return calc.multiply(num)
+def multiply(num:float, ):
+        return calculator.multiply(num)
 
-@handle_errors
 @app.get("/divide/{num}")
-def divide(num:float, calc: Calculator = Depends(get_calculator)):
-        return calc.divide(num)
+@handle_errors
+def divide(num:float, ):
+        return calculator.divide(num)
 
 @app.get("/clear")
-def clear(calc: Calculator = Depends(get_calculator)):
-        return calc.clear()
+def clear():
+        return calculator.clear()
