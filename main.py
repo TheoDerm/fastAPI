@@ -25,6 +25,13 @@ Key concepts:
                          
 QUESTIONS:
 1. Doesn't working with DI mean that I will need to use async functions since we are serving multiple users now concurrentlly?                         
+
+ISSUES:
+1. With DI and when you create a new instance for each user -> this creates problem with my current calculator. Keep it simple for now.
+
+
+
+
 """
 
 
@@ -59,11 +66,12 @@ def root():
 
 
 @app.get("/currentValue")
+# def currentValue(calc: Calculator = Depends(get_calculator)):
 def currentValue(calc: Calculator = Depends(get_calculator)):
         return {"Current Value": calc.getCurrentValue()}
 
-@app.get("/add/{num}")
 @handle_errors
+@app.get("/add/{num}")
 def add(num:float, calc: Calculator = Depends(get_calculator)):
         return calc.add(num)
 
@@ -77,8 +85,8 @@ def sub(num:float, calc: Calculator = Depends(get_calculator)):
 def multiply(num:float, calc: Calculator = Depends(get_calculator)):
         return calc.multiply(num)
 
-@app.get("/divide/{num}")
 @handle_errors
+@app.get("/divide/{num}")
 def divide(num:float, calc: Calculator = Depends(get_calculator)):
         return calc.divide(num)
 

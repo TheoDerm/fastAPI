@@ -57,6 +57,10 @@ class Calculator:
     
     def getCurrentValue(self) -> float:
         return self.current_value
+    
+    def clear(self):
+        self.current_value = 0.0
+        return self.current_value
 
 
 # calculator = Calculator()
