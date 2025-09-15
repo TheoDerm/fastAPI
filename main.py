@@ -29,19 +29,36 @@ QUESTIONS:
 ISSUES:
 1. With DI and when you create a new instance for each user -> this creates problem with my current calculator. Keep it simple for now.
 
-
-
+TO DO:
+1. Difference between errors and exceptions -> see which is best suited
+2. Do it for multiple users -> read about concurrency, async functions etc
+3. See a bit better the testing, part
 
 """
 
 
-from fastapi import FastAPI, HTTPException,status, Depends
-from typing import Union
+from fastapi import FastAPI, HTTPException,status, Request
+from typing import Dict, List, Optional
 from pydantic import BaseModel
 from calculator import Calculator
+from dataclasses import dataclass
+from datetime import datetime
+
+
+
 app = FastAPI()
 calculator = Calculator()
 current_value: float = 0.0
+
+@dataclass
+class Action():
+        action_type: str
+        value: str
+        details: str
+        timestamp: str
+
+
+action_history: Dict[str, List[Action]] = {}
 
 
 def handle_errors(func):
@@ -52,37 +69,84 @@ def handle_errors(func):
                         raise HTTPException (status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
         return wrapper
 
+def track_action(ip: str, value: str, action: str, details: str):
+        if ip not in action_history:
+                action_history[ip] = []
+
+        # New action
+        new_action = Action(
+                action_type= action,
+                value= value,
+                details = details,
+                timestamp=datetime.now().isoformat()
+        )
+
+        action_history[ip].append(new_action)
+
+        # Keep up to 50 actions
+        if len(action_history[ip]) > 50:
+                action_history[ip].pop(0)
+
+def get_IP(req: Request):
+        client_host = req.headers.get(
+            "x-forwarded-for",
+            req.client.host if req.client else "unknown"
+        )
+        return client_host
 
 @app.get("/")
-def root():
+def root() -> Dict[str, str]:
         return {"message": "Server is working"}
 
 
 @app.get("/currentValue")
-# def currentValue(calc: Calculator = Depends(get_calculator)):
-def currentValue():
+def currentValue(req: Request):
+        track_action(get_IP(req),"None", "get_current_value", f"value: {calculator.getCurrentValue()}")
         return {"Current Value": calculator.getCurrentValue()}
 
+@handle_errors
 @app.get("/add/{num}")
-@handle_errors
-def add(num:float, ):
-        return calculator.add(num)
+def add(num:float, req: Request ):
+        result = calculator.add(num)
+        track_action(get_IP(req), str(num), "add", f"{calculator.getCurrentValue() - num} + {num} = {result}")
+        return result
 
+@handle_errors
 @app.get("/sub/{num}")
+def sub(num:float, req:Request ):
+        result = calculator.substract(num)
+        track_action(get_IP(req), str(num), "subtrack", f"{calculator.getCurrentValue() + num} - {num} = {result}")
+        return result
 @handle_errors
-def sub(num:float, ):
-        return calculator.substract(num)
-
 @app.get("/multiply/{num}")
-@handle_errors
-def multiply(num:float, ):
-        return calculator.multiply(num)
+def multiply(num:float, req: Request ):
+        result = calculator.multiply(num)
+        track_action(get_IP(req), str(num),"multiply", f"{calculator.getCurrentValue() / num} * {num} = {result}")
+        return result
 
-@app.get("/divide/{num}")
 @handle_errors
-def divide(num:float, ):
-        return calculator.divide(num)
+@app.get("/divide/{num}")
+def divide(num:float, req:Request):
+        result = calculator.divide(num)
+        track_action(get_IP(req), str(num), "divide", f"{calculator.getCurrentValue() * num} / {num} = {result}")
+        return result
 
 @app.get("/clear")
-def clear():
-        return calculator.clear()
+def clear(req: Request):
+        result = calculator.clear()
+        track_action(get_IP(req),"None", "clear_output", f"value: {result}")
+        return result
+
+@app.get("/my_action_history")
+def get_action_history(req: Request):
+        ip = get_IP(req)
+        print("Testing:", ip)
+        if ip not in action_history:
+                return {"Message": "No history was found for your ip"}
+        
+        return {
+                        "ip": ip,
+                        "actions": [action for action in action_history[ip]]
+                }
+                
+        
