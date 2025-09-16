@@ -31,7 +31,7 @@ ISSUES:
 
 TO DO:
 1. Difference between errors and exceptions -> see which is best suited
-2. Do it for multiple users -> read about concurrency, async functions etc
+2. Do it for multiple users 
 3. See a bit better the testing, part
 
 """
@@ -59,34 +59,54 @@ class Action():
 
 
 action_history: Dict[str, List[Action]] = {}
+users_list: Dict[str, Calculator] = {}
 
+def track_action(ip: str, value: str, action: str):
+        try: 
+                if ip not in users_list:
+                        users_list[ip] = Calculator()
+                        action_history[ip] = []
+                calculator = users_list[ip]
+                initial_value = calculator.getCurrentValue()
+                
+                if action == "get_current_value":
+                        result= initial_value
+                        details = f"value: {initial_value}"
+                elif action == "add":
+                        result = calculator.add(float(value))
+                        details = f"{initial_value} + {value} = {result}"
+                elif action == "subtract":
+                        result = calculator.substract(float(value))
+                        details = f"{initial_value} - {value} = {result}"
+                elif action == "multiply":
+                        result = calculator.multiply(float(value))
+                        details = f"{initial_value} * {value} = {result}"
+                elif action == "divide":
+                        result = calculator.divide(float(value))
+                        details = f"{initial_value} / {value} = {result}" 
+                elif action == "clear_output":
+                        result = calculator.clear()
+                        details = f"value: {result}"
+                else: 
+                        raise ValueError(f"Unknown action: {action}")
+                
+                # New action
+                new_action = Action(
+                        action_type= action,
+                        value= str(value),
+                        details = details,
+                        timestamp=datetime.now().isoformat()
+                )
 
-def handle_errors(func):
-        def wrapper(num: float):
-                try: 
-                        return func(num)        # Call the original function and return the result
-                except (ValueError, OverflowError) as e:
-                        raise HTTPException (status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
-        return wrapper
+                action_history[ip].append(new_action)
 
-def track_action(ip: str, value: str, action: str, details: str):
-        if ip not in action_history:
-                action_history[ip] = []
-
-        # New action
-        new_action = Action(
-                action_type= action,
-                value= value,
-                details = details,
-                timestamp=datetime.now().isoformat()
-        )
-
-        action_history[ip].append(new_action)
-
-        # Keep up to 50 actions
-        if len(action_history[ip]) > 50:
-                action_history[ip].pop(0)
-
+                # Keep up to 50 actions
+                if len(action_history[ip]) > 50:
+                        action_history[ip].pop(0)
+                
+                return result
+        except (ValueError, OverflowError) as e:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 def get_IP(req: Request):
         client_host = req.headers.get(
             "x-forwarded-for",
@@ -101,41 +121,28 @@ def root() -> Dict[str, str]:
 
 @app.get("/currentValue")
 def currentValue(req: Request):
-        track_action(get_IP(req),"None", "get_current_value", f"value: {calculator.getCurrentValue()}")
-        return {"Current Value": calculator.getCurrentValue()}
+        ip = get_IP(req)
+        return track_action(ip,"None", "get_current_value")
 
-@handle_errors
 @app.get("/add/{num}")
 def add(num:float, req: Request ):
-        result = calculator.add(num)
-        track_action(get_IP(req), str(num), "add", f"{calculator.getCurrentValue() - num} + {num} = {result}")
-        return result
+        return track_action(get_IP(req), str(num), "add")
 
-@handle_errors
 @app.get("/sub/{num}")
 def sub(num:float, req:Request ):
-        result = calculator.substract(num)
-        track_action(get_IP(req), str(num), "subtrack", f"{calculator.getCurrentValue() + num} - {num} = {result}")
-        return result
-@handle_errors
+        return track_action(get_IP(req), str(num), "subtract")
+
 @app.get("/multiply/{num}")
 def multiply(num:float, req: Request ):
-        result = calculator.multiply(num)
-        track_action(get_IP(req), str(num),"multiply", f"{calculator.getCurrentValue() / num} * {num} = {result}")
-        return result
+        return track_action(get_IP(req), str(num),"multiply")
 
-@handle_errors
 @app.get("/divide/{num}")
 def divide(num:float, req:Request):
-        result = calculator.divide(num)
-        track_action(get_IP(req), str(num), "divide", f"{calculator.getCurrentValue() * num} / {num} = {result}")
-        return result
+        return track_action(get_IP(req), str(num), "divide")
 
 @app.get("/clear")
 def clear(req: Request):
-        result = calculator.clear()
-        track_action(get_IP(req),"None", "clear_output", f"value: {result}")
-        return result
+        return track_action(get_IP(req),"None", "clear_output")
 
 @app.get("/my_action_history")
 def get_action_history(req: Request):

@@ -62,15 +62,3 @@ class Calculator:
         self.current_value = 0.0
         return self.current_value
 
-
-# calculator = Calculator()
-
-# calculator.add(10)
-# calculator.substract(-2)
-# print(calculator.getCurrentValue())
-
-# calculator.multiply(3)
-# calculator.divide(0)
-
-
-# print(calculator.getCurrentValue())
