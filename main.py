@@ -17,31 +17,30 @@ import uuid
 import asyncio
 from contextlib import asynccontextmanager
 
-@asynccontextmanager
-async def cleanup_users_task(app: FastAPI):
-        asyncio.create_task(user_cleanup())
-        yield
 
-app = FastAPI()
+
+
+
 
 @dataclass
 class Action():
         action_type: str
         value: str
-        details: str
         timestamp: str
 
 @dataclass
 class User():
         uid: str
-        calculator: Calculator  # Associated calculator
         creation_date : datetime 
         exp_date: int           # Associatted cookie expiry date
         actions: List[Action]
 
 user_list: Dict[str,User] = {}
 
-
+@asynccontextmanager
+async def cleanup_users_task(app: FastAPI):
+        asyncio.create_task(user_cleanup())
+        yield
 
 async def user_cleanup():
         while True:
@@ -60,56 +59,50 @@ async def user_cleanup():
                         cleanups_counter += 1
                 if cleanups_counter > 0:
                         print(f"Cleaned up {cleanups_counter} expired users. Total users: {len(user_list)}")
-
-def track_action(user: User, value: str, action: str):
-        try: 
-                calculator = user.calculator
-                initial_value = calculator.getCurrentValue()
-                
-                if action == "get_current_value":
-                        result= initial_value
-                        details = f"value: {initial_value}"
-                elif action == "add":
-                        result = calculator.add(float(value))
-                        details = f"{initial_value} + {value} = {result}"
-                elif action == "subtract":
-                        result = calculator.substract(float(value))
-                        details = f"{initial_value} - {value} = {result}"
-                elif action == "multiply":
-                        result = calculator.multiply(float(value))
-                        details = f"{initial_value} * {value} = {result}"
-                elif action == "divide":
-                        result = calculator.divide(float(value))
-                        details = f"{initial_value} / {value} = {result}" 
-                elif action == "clear_output":
-                        result = calculator.clear()
-                        details = f"value: {result}"
-                else: 
-                        raise ValueError(f"Unknown action: {action}")
-                
-                # New action
-                new_action = Action(
-                        action_type= action,
-                        value= str(value),
-                        details = details,
-                        timestamp=datetime.now().isoformat()
-                )
-
-                user.actions.append(new_action)
-
-                # Keep up to 50 actions
-                if len(user.actions) > 50:
-                        user.actions.pop(0)
-                
+def compute(calc: Calculator, user: User) :
+        try:    
+                result: float =  0.0
+                for action in user.actions:
+                        value = action.value
+                        if action.action_type == "add":
+                                result = calc.add(result, float(value))
+                        elif action.action_type == "subtract":
+                                result = calc.substract(result,float(value))
+                        elif action.action_type == "multiply":
+                                result = calc.multiply(result,float(value))
+                        elif action.action_type == "divide":
+                                result = calc.divide(result,float(value))
+                        elif action.action_type == "clear_output":
+                                result = calc.clear()
+                        else: 
+                                raise ValueError(f"Unknown action detected: {action.action_type}")
                 return result
         except (ValueError, OverflowError) as e:
-                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) 
+
+def track_action(calc: Calculator, user: User, value: str, action: str):   
+        # New action
+        new_action = Action(
+                action_type= action,
+                value= value,
+                # details = details,
+                timestamp=datetime.now().isoformat()
+        )
+
+        user.actions.append(new_action)
+
+        # Keep up to 50 actions
+        if len(user.actions) > 50:
+                user.actions.pop(0)
+        
+        return {"Message": "Operation Succesful"}
+        
 
 
 def get_user(req: Request, response: Response):
         uid = req.cookies.get("user_id")
 
-        if not uid:
+        if not uid or uid not in user_list:
                 uid = str(uuid.uuid4())
                 cookie_expiry_date = 10*60 
 
@@ -125,7 +118,6 @@ def get_user(req: Request, response: Response):
                 #Create new user
                 new_user = User(
                         uid = uid,
-                        calculator= Calculator(),
                         creation_date = datetime.now(),
                         exp_date= cookie_expiry_date,
                         actions= []
@@ -137,54 +129,68 @@ def get_user(req: Request, response: Response):
 
 
 
-
-@app.get("/")
-def root() -> Dict[str, str]:
-        return {"message": "Server is working"}
-
-
-@app.get("/currentValue")
-def currentValue(req: Request, response: Response):
-        user = get_user(req, response)
-        return track_action(user,"None", "get_current_value")
-
-@app.get("/add/{num}")
-def add(num:float, req: Request, response: Response ):
-        user = get_user(req, response)
-        return track_action(user, str(num), "add")
-
-@app.get("/sub/{num}")
-def sub(num:float, req:Request, response: Response ):
-        user = get_user(req, response)
-        return track_action(user, str(num), "subtract")
-
-@app.get("/multiply/{num}")
-def multiply(num:float, req: Request, response: Response ):
-        user = get_user(req, response)
-        return track_action(user, str(num),"multiply")
-
-@app.get("/divide/{num}")
-def divide(num:float, req:Request, response: Response):
-        user = get_user(req, response)
-        return track_action(user, str(num), "divide")
-
-@app.get("/clear")
-def clear(req: Request, response: Response):
-        user = get_user(req, response)
-        return track_action(user,"None", "clear_output")
-
-@app.get("/my_action_history")
-def get_action_history(req: Request, response: Response):
-        user = get_user(req, response)
-        if len(user.actions) == 0:
-                return {"Message": "No history was found for your user"}
+def createApp(calc: Calculator) -> FastAPI:
+        app = FastAPI()
         
-        return {
-                        "user_id": user.uid,
-                        "actions": user.actions
-                }
-               
+        @app.get("/")
+        def root() -> Dict[str, str]:
+                return {"Message": "Server is working"}
+
+
+        @app.get("/currentValue")
+        def currentValue(req: Request, response: Response):
+                user = get_user(req, response)
+                return track_action(calc,user,"None", "get_current_value")
+
+        @app.get("/add/{num}")
+        def add(num:float, req: Request, response: Response ):
+                user = get_user(req, response)
+                return track_action(calc,user, str(num), "add")
+
+        @app.get("/sub/{num}")
+        def sub(num:float, req:Request, response: Response ):
+                user = get_user(req, response)
+                return track_action(calc,user, str(num), "subtract")
+
+        @app.get("/multiply/{num}")
+        def multiply(num:float, req: Request, response: Response ):
+                user = get_user(req, response)
+                return track_action(calc,user, str(num),"multiply")
+
+        @app.get("/divide/{num}")
+        def divide(num:float, req:Request, response: Response):
+                user = get_user(req, response)
+                return track_action(calc,user, str(num), "divide")
+
+        @app.get("/clear")
+        def clear(req: Request, response: Response):
+                user = get_user(req, response)
+                return track_action(calc,user,"None", "clear_output")
+
+        @app.get("/my_action_history")
+        def get_action_history(req: Request, response: Response):
+                user = get_user(req, response)
+                if len(user.actions) == 0:
+                        return {"Message": "No history was found for your user"}
+                
+                return {
+                                "user_id": user.uid,
+                                "actions": user.actions
+                        }
+        
+        @app.get("/compute")
+        def get_compute(req: Request, response: Response):
+                user = get_user(req, response)
+                return compute(calc, user)
+        
+        return app
+
+
 
 if __name__ == "__main__":
         import uvicorn
+        calc = Calculator()
+        
+        app = createApp(calc)
+
         uvicorn.run(app, host="0.0.0.0", port=8000)

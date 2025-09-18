@@ -3,7 +3,7 @@ import sys
 class Calculator:
 
     def __init__(self) -> None:
-        self.current_value = 0.0
+        pass
     
     def _is_valid_number(self, num: float) -> bool:
         return not math.isnan(num) and not math.isinf(num)
@@ -20,45 +20,41 @@ class Calculator:
         except OverflowError:
             return True
      
-    def add(self, num: float) -> float:
+    def add(self,num1:float, num2: float) -> float:
         # Check valid  number
-        if not self._is_valid_number(num):
-            raise ValueError(f"invalid numer: {num}")
+        if not self._is_valid_number(num2):
+            raise ValueError(f"invalid numer: {num2}")
         
-        if self._would_overflow(self.current_value, num, "+"):
+        if self._would_overflow(num1, num2, "+"):
             raise OverflowError("Result would overflow")
         
-        self.current_value += num
-        return self.current_value
+        return num1+num2
     
-    def substract(self, num:float) -> float:
-        return self.add(-num)
+    def substract(self, num1:float, num2: float) -> float:
+        return self.add(num1,-num2)
 
-    def multiply(self, num:float ) -> float:
+    def multiply(self, num1:float, num2: float ) -> float:
         # Check valid  number
-        if not self._is_valid_number(num):
-            raise ValueError(f"invalid numer: {num}")
+        if not self._is_valid_number(num2):
+            raise ValueError(f"invalid numer: {num2}")
         
-        if self._would_overflow(self.current_value, num, "*"):
+        if self._would_overflow(num1, num2, "*"):
             raise OverflowError("Result would overflow")
-        self.current_value *= num
-        return self.current_value
+
+        return num1*num2
     
-    def divide(self, num:float ) -> float:
+    def divide(self, num1:float, num2: float ) -> float:
         # Check valid  number
-        if not self._is_valid_number(num):
-            raise ValueError(f"invalid numer: {num}")
-        if num == 0:
+        if not self._is_valid_number(num2):
+            raise ValueError(f"invalid numer: {num2}")
+        if num2 == 0:
             raise ValueError("Division cannot be done with 0")
-        if self._would_overflow(self.current_value, num, "/"):
+        if self._would_overflow(num1, num2, "/"):
             raise OverflowError("Result would overflow")
-        self.current_value /= num
-        return self.current_value
+        
+        return num1 / num2
     
-    def getCurrentValue(self) -> float:
-        return self.current_value
     
     def clear(self):
-        self.current_value = 0.0
-        return self.current_value
+        return 0.0
 
