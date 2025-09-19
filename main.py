@@ -1,8 +1,7 @@
 """
 TO DO:
-1. Difference between errors and exceptions -> see which is best suited
-2. See a bit better the testing, part
-3. Test the app and read about async more - do I need to handle tasks when the app shutsdown?
+1. The compute function, the variable there, does it mean we store state in the main.py.
+If it existed in the Calculator.py would that mean it holds state?
 
 """
 
@@ -193,4 +192,4 @@ if __name__ == "__main__":
         
         app = createApp(calc)
 
-        uvicorn.run(app, host="0.0.0.0", port=8000)
+        uvicorn.run(app, host="127.0.0.1", port=8000)
