@@ -80,6 +80,9 @@ def compute(calc: Calculator, user: User) :
                 raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) 
 
 def track_action(calc: Calculator, user: User, value: str, action: str):   
+        
+        if action == "divide" and float(value) == 0:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail= str("Cannot divide with 0, try again"))
         # New action
         new_action = Action(
                 action_type= action,
